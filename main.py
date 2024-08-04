@@ -6,32 +6,88 @@ import time
 import db_methods
 import deribit
 
-if __name__ == "__main__":
-
+def main(index_list:list, iteration_sleep:int=60*60*24) -> None:
     # Init the Collector class
-    collector = Agent.Collector()
+    agent = Agent.Collector()
 
     # Init Deribit connection
-    collector.init_deribit(
+    agent.init_deribit(
         apiKey=deribit_apiKey,
         apisecret=deribit_apisecret,
         sandbox_mode=False
     )
 
     # Init Binance connection
-    collector.init_binance(
+    agent.init_binance(
         apiKey=binance_apiKey,
         apisecret=binance_apisecret,
         sandbox_mode=False
     )
 
     # Init Postgress BD connection
-    collector.init_db_conn(
+    agent.init_db_conn(
         db_name=db_name,
         db_user=db_user,
         db_password=db_password
     )
+    
+    # Set up timestamp for stats
+    session_start = dt.datetime.now()
 
+    # Launch infinite Loop
+    while True:
+
+        iteration_start = dt.datetime.now()
+        
+        
+        db_methods.write_instruments_table_deribit(agent.deribit, is_active=False)
+        db_methods.write_instruments_table_deribit(agent.deribit)
+
+        # Update active status of instruments.
+        db_methods.write_instruments_status()
+
+        # Gather and store data from expired instruments
+        written_rows, failed_rows = db_methods.write_marketdata_in_db(is_active=False)
+        agent.stats["datapoints"]["writen"] += written_rows
+        agent.stats["datapoints"]["failed"] += failed_rows
+
+        # Gather and store data from active intruments
+        written_rows, failed_rows = db_methods.write_marketdata_in_db(is_active=True)
+        agent.stats["datapoints"]["writen"] += written_rows
+        agent.stats["datapoints"]["failed"] += failed_rows
+
+        for i in index_list:
+            db_methods.write_index_data(
+                index_name=i,
+                interval="1m",
+                start_timestamp=db_methods.read_last_date_from_index(index_name=i, exchange="binance")
+            )
+
+        # Calculate stats
+        iteration_end = dt.datetime.now()
+        iteration_duration = iteration_end - iteration_start
+        agent.stats["running_time"] += iteration_duration
+        agent.stats["iterations"] += 1
+
+        # Print the stats
+        print("duration of iteration", iteration_duration)
+        print("======= [SESSION STATS] =======")
+        print("Session start: ", session_start)
+        print("Session duration: ", dt.datetime.now() - session_start)
+        print(f"Datapoints\nWriten: {agent.stats['datapoints']['writen']}\nFailed: {agent.stats['datapoints']['failed']}")
+        print(f"Running time: {agent.stats['running_time']}")
+        print(f"iterarions: {agent.stats['iterations']}")
+        print(f"running avg per iteration: {round((agent.stats['running_time'].seconds/60)/agent.stats['iterations'],2)} minutes")
+        print(f"Writing speed: {agent.stats['datapoints']['writen']/(agent.stats['running_time'].seconds/60)}")
+        print("=============================")
+        print()
+        print(dt.datetime.now(), "sleeping for 24H\n")
+        print(f"Next iteration starts at {dt.datetime.now() + dt.timedelta(hours=24)}")
+        print()
+        time.sleep(60*60*24)
+
+if __name__ == "__main__":
+    
     # Index list to retrieve
     index_list = [
         "ETHUSDT",
@@ -43,47 +99,4 @@ if __name__ == "__main__":
         "MATICUSDT",
         "BTCUSDT"
         ]
-    
-    # Set up timestamp for stats
-    session_start = dt.datetime.now()
-
-    # Launch infinite Loop
-    while True:
-
-        iter_start = dt.datetime.now()
-        
-        
-        db_methods.write_instruments_table_deribit(collector.deribit, is_active=False)
-        db_methods.write_instruments_table_deribit(collector.deribit)
-
-        db_methods.write_instruments_status()
-        collector.write_marketdata_in_db(is_active=False)
-        collector.write_marketdata_in_db(is_active=True)
-
-        for i in index_list:
-            collector.write_index_data(
-                index_name=i,
-                interval="1m",
-                start_timestamp=collector.read_last_date_from_index(index_name=i, exchange="binance")
-            )
-
-
-        iter_end = dt.datetime.now()
-        iter_dur = iter_end - iter_start
-        collector.stats["running_time"] += iter_dur
-        collector.stats["iterations"] += 1
-        print("duration of iteration", iter_dur)
-        print("======= [SESSION STATS] =======")
-        print("Session start: ", session_start)
-        print("Session duration: ", dt.datetime.now() - session_start)
-        print(f"Datapoints\nWriten: {collector.stats['datapoints']['writen']}\nFailed: {collector.stats['datapoints']['failed']}")
-        print(f"Running time: {collector.stats['running_time']}")
-        print(f"iterarions: {collector.stats['iterations']}")
-        print(f"running avg per iteration: {round((collector.stats['running_time'].seconds/60)/collector.stats['iterations'],2)} minutes")
-        print(f"Writing speed: {collector.stats['datapoints']['writen']/(collector.stats['running_time'].seconds/60)}")
-        print("=============================")
-        print()
-        print(dt.datetime.now(), "sleeping for 24H\n")
-        print(f"Next iteration starts at {dt.datetime.now() + dt.timedelta(hours=24)}")
-        print()
-        time.sleep(60*60*24)
+    main(index_list=index_list)
