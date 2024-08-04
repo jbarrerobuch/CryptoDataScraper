@@ -3,6 +3,9 @@ from variables import *
 import datetime as dt
 import time
 
+import db_methods
+import deribit
+
 if __name__ == "__main__":
 
     # Init the Collector class
@@ -50,10 +53,10 @@ if __name__ == "__main__":
         iter_start = dt.datetime.now()
         
         
-        collector.write_instruments_table(is_active=False)
-        collector.write_instruments_table()
+        db_methods.write_instruments_table_deribit(collector.deribit, is_active=False)
+        db_methods.write_instruments_table_deribit(collector.deribit)
 
-        collector.write_instruments_status()
+        db_methods.write_instruments_status()
         collector.write_marketdata_in_db(is_active=False)
         collector.write_marketdata_in_db(is_active=True)
 

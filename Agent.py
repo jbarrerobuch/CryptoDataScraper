@@ -6,6 +6,8 @@ from pytz import timezone, all_timezones
 import os
 import psycopg2
 import json
+import db_methods as db
+import deribit
 
 class Collector:
 
@@ -66,77 +68,20 @@ class Collector:
     
 
     # DB methods
-
-    def execute_sql(self,query:str):
-        #print(f"SQL to execute:\n{sql}")
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(query)
-                if query.startswith("SELECT"):
-                    return cursor.fetchall()
-                else:
-                    #qresult = cursor.rowcount
-                    self.conn.commit()
-            print("Execute SQL succesful")
-        except Exception as err:
-            print(f"Exception raised:{err}")
-            self.conn.rollback()
+    def execute_sql(self, query:str):
+        
+        return db.execute_sql(db_conn=self.conn, query=query)
 
 
     def write_df_to_db(self, data:pd.DataFrame, table_name:str, print_msg:str=None, verbose:str="False") -> bool:
-        """
-        Bulk write a dataframe to a table.
-        Required:
-        - Dataframe's column names match DB_table's columns names
-        - Default index. It will be reset before writing
-        """
-        # Reset dataframe's index to iterate over it
-        data.reset_index(drop=True, inplace=True)
-        # Convert values from dataframe to dictionary
-        status = False
-        values = data.to_dict(orient="index")
-
-        if print_msg:
-            print("================")
-            print(f"Writing {len(data)} data points.")
-            print(print_msg)
-        else:
-            print("================")
-            print(f"Writing {len(data)} data points to DB...")
         
-        # Gather column names and concatenate them comma separated
-        col_names = data.columns.to_list()
-        col_names_csv = ",".join(col_names)
-
-        # Map column name in dataframe to same name column in the DB
-        col_names_map = ",".join([f"%({i})s" for i in col_names])
-
-        # Build the argument value to execute the query
-        arg = f"INSERT INTO {table_name} ({col_names_csv}) VALUES ({col_names_map})"
-        writen_rows = 0
-        writen_failed = 0
-        # Writing each row by iterating the value list
-        with self.conn.cursor() as cursor:
-            status = False
-            for i in range(len(values)):
-                #print(f"values{i}")
-                #print(values[i])
-                #print()
-                try:
-                    cursor.execute(arg, values[i])
-                    self.conn.commit()
-                    status = True
-                    writen_rows += 1
-                except Exception as e:
-                    if verbose == "True":
-                        print(f"Writing data failed... Rollback - Error:\n values{i} - {e}")
-                    self.conn.rollback()
-                    writen_failed += 1
+        status, writen_rows, writen_failed = db.write_df_to_db(
+            db_conn=self.conn,
+            data=data,
+            table_name=table_name,
+            print_msg=print_msg,
+            verbose=verbose)
         
-        print("================")
-        print(f"DB Writing ended\nWriten: {writen_rows}\nFailed: {writen_failed}\nTotal: {writen_rows+writen_failed}")
-        print("================")
-        print()
         if table_name == "market_data":
             self.stats["datapoints"]["writen"] += writen_rows
             self.stats["datapoints"]["failed"] += writen_failed
@@ -148,247 +93,22 @@ class Collector:
     # Options from Deribit
 
     def get_currency_list(self) -> list:
-        currencies_raw = self.deribit.publicGetGetCurrencies() # type: ignore
-        currency_list = []
-        for currency in currencies_raw["result"]:
-            currency_list.append(currency["currency"])
-        return currency_list
+        return deribit.get_currency_list(self.deribit)
     
 
     def get_instruments(self, currency_list:list, kind="option", expired = False) -> pd.DataFrame:
-        dtypes = {
-                "tick_size_steps": "str",
-                "quote_currency": "str",
-                "min_trade_amount": "int64",
-                "expiration_timestamp": "datetime64",
-                "counter_currency": "str",
-                "settlement_currency": "str",
-                "block_trade_tick_size": "float64",
-                "block_trade_min_trade_amount": "float64",
-                "block_trade_commission": "float64",
-                "option_type": "str",
-                "settlement_period": "str",
-                "creation_timestamp": "datetime64",
-                "contract_size": "float64",
-                "base_currency": "str",
-                "instrument_id": "str",
-                "instrument_type": "str",
-                "taker_commission": "float64",
-                "maker_commission": "float64",
-                "tick_size": "float64",
-                "strike": "float64",
-                "is_active": "bool",
-                "instrument_name": "str",
-                "kind": "str",
-                "rfq": "bool",
-                "price_index": "str",
-                "is_complete": "bool"
-        }
-        instruments_df = pd.DataFrame(columns = dtypes.keys()).astype(dtypes)
-        for currency in currency_list:
-            instruments_raw = self.deribit.publicGetGetInstruments(
-                params={
-                    "currency": currency, # type: ignore
-                    "kind": kind,
-                    "expired": expired
-                }
-            )
-            data = pd.DataFrame.from_records(instruments_raw["result"])
-            instruments_df = pd.concat([instruments_df, data])
-            instruments_df.reset_index(drop=True, inplace=True)
-
-
-        instruments_df['expiration_timestamp'] = pd.to_datetime(instruments_df['expiration_timestamp'], unit="ms", utc= True)
-        instruments_df['creation_timestamp'] = pd.to_datetime(instruments_df['creation_timestamp'], unit="ms", utc= True)
-        return instruments_df
+        return deribit.get_instruments(
+            deribit_obj = self.deribit,
+            currency_list = currency_list,
+            kind = kind,
+            expired = expired)
 
 
     def write_instruments_table(self, is_active=True):
-        currencies = self.get_currency_list()
-        print(f"Updating instruments with active status {is_active}")
-
-        instruments = self.get_instruments(currency_list=currencies, expired=not is_active)
-        instruments["is_complete"] = False
-        instruments["tick_size_steps"] = instruments["tick_size_steps"].apply(json.dumps)
-        #print(instruments.head())
-        self.write_df_to_db(data=instruments, table_name="instruments", verbose="False")
-        #print(write_in_db)
-
-
-    def write_instruments_status(self) -> None:
-
-        # SET EXPIRED INSTRUMENTS TO is_active = False
-        sql = "UPDATE instruments SET is_active = false\n\
-            WHERE expiration_timestamp < CURRENT_DATE;"
-        self.execute_sql(query=sql)
-        print("Updated expiration statuses")
-
-        # SET COMPLETE INSTRUMENTS TO is_complete = True
-        sql = """
-            UPDATE instruments
-            SET is_complete = TRUE
-            FROM (
-                SELECT
-                    instruments.instrument_name,
-                    instruments.creation_timestamp as creation_timestamp,
-                    min(timestamp) as min_timestamp,
-                    instruments.expiration_timestamp as expiration_timestamp,
-                    max(timestamp) as max_timestamp
-                FROM market_data
-                INNER JOIN instruments
-                ON market_data.instrument_id = instruments.instrument_id
-                GROUP BY instruments.instrument_name, instruments.creation_timestamp, instruments.expiration_timestamp
-                HAVING instruments.expiration_timestamp <= max(market_data.timestamp)
-            ) AS subquery
-            WHERE instruments.instrument_name = subquery.instrument_name;
-        """
-        self.execute_sql(query=sql)
-        print("Updated complete statuses")
-
-
-    def read_instruments_from_db(self, is_active:bool=True, is_complete:bool=False) -> pd.DataFrame:
-
-        """
-        Fetch columns from the table "instruments" filtered by:
-        - is_active (bool): default True
-        - is_complete (bool): default False
-
-        SQL SNIPPET
-        ------------------------------
-        SELECT * FROM instruments\n
-        WHERE is_active = {is_active} AND is_complete = {is_complete}
-        """
-        # Build SQL snippets for execution
-
-        sql = f"SELECT * FROM instruments WHERE is_active = {is_active} AND is_complete = {is_complete}"
-
-        #print(f"SQL to execute:\n {sql}")
-
-        # initialize the cursor and execute the SQL sentence
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(sql)
-                qresult = cursor.fetchall()
-            self.conn.commit()
-        except Exception as err:
-            print(f"Exception raised:{err}")
-            self.conn.rollback()
-
-        # Define dfresult and dtypes
-        dtypes = {
-            "tick_size_steps": "str",
-            "quote_currency": "str",
-            "min_trade_amount": "int64",
-            "expiration_timestamp": "datetime64",
-            "counter_currency": "str",
-            "settlement_currency": "str",
-            "block_trade_tick_size": "float64",
-            "block_trade_min_trade_amount": "float64",
-            "block_trade_commission": "float64",
-            "option_type": "str",
-            "settlement_period": "str",
-            "creation_timestamp": "datetime64",
-            "contract_size": "float64",
-            "base_currency": "str",
-            "instrument_id": "str",
-            "instrument_type": "str",
-            "taker_commission": "float64",
-            "maker_commission": "float64",
-            "tick_size": "float64",
-            "strike": "float64",
-            "is_active": "bool",
-            "instrument_name": "str",
-            "kind": "str",
-            "rfq": "bool",
-            "price_index": "str",
-            "is_complete": "bool",
-            "not_found": "datetime64"
-        }
-
-        #print("Results in query",len(qresult))
-        dfresult = pd.DataFrame(qresult, columns=[desc[0] for desc in cursor.description]).astype(dtypes)
-        #print(dfresult.info())
-
-        return dfresult
-    
-
-    def read_last_date_from_instruments(self, is_active:bool=True, is_complete:bool=False, get_last_data_timestamp = False) -> pd.DataFrame:
-        """
-        Fetch timestamp columns from the table "instruments" filtered by:
-        - is_active (bool): default True
-        - is_complete (bool): default False
-        - get_last_data_timestamp (bool): defaul False; get last market data timestamp
-
-        and the first (if get_min_date = True) and last timestamp available in market_data
-
-        SQL SNIPPET
-        ------------------------------
-        SELECT instruments.instrument_name, instruments.creation_timestamp as creation_timestamp, min(timestamp) as min_timestamp,
-            instruments.expiration_timestamp as expiration_timestamp, max(timestamp) as max_timestamp
-        FROM market_data
-        INNER JOIN instruments
-        ON market_data.instrument_id = instruments.instrument_id
-        GROUP BY instruments.instrument_name, instruments.creation_timestamp, instruments.expiration_timestamp
-        """
-        # Build SQL snippets for execution
-
-        if get_last_data_timestamp:
-            sql = f"SELECT instruments.instrument_name, instruments.instrument_id, instruments.is_active,\
-                instruments.creation_timestamp as creation_timestamp, min(timestamp) as min_timestamp,\
-                instruments.expiration_timestamp as expiration_timestamp,\
-                max(timestamp) as max_timestamp\
-                FROM market_data\
-                INNER JOIN instruments ON market_data.instrument_id = instruments.instrument_id\
-                WHERE instruments.is_active = {is_active} AND is_complete = {is_complete}\
-                GROUP BY instruments.instrument_name, instruments.instrument_id, instruments.is_active, instruments.creation_timestamp, instruments.expiration_timestamp\
-                ORDER BY instruments.expiration_timestamp DESC"
-            # Define dfresult and dtypes
-            dtypes = {
-                "instrument_name": "str",
-                "instrument_id": "str",
-                "is_active": "bool",
-                "creation_timestamp": "datetime64",
-                "min_timestamp": "datetime64",
-                "expiration_timestamp": "datetime64",
-                "max_timestamp": "datetime64"
-            }
-
-        else:
-            sql = f"SELECT instruments.instrument_name, instruments.instrument_id, instruments.is_active,\
-                instruments.creation_timestamp as creation_timestamp, instruments.expiration_timestamp as expiration_timestamp,\
-                max(timestamp) as max_timestamp\
-                FROM market_data\
-                INNER JOIN instruments ON market_data.instrument_id = instruments.instrument_id\
-                WHERE instruments.is_active = {is_active} AND is_complete = {is_complete}\
-                GROUP BY instruments.instrument_name, instruments.instrument_id, instruments.is_active, instruments.creation_timestamp, instruments.expiration_timestamp\
-                ORDER BY instruments.expiration_timestamp DESC"
-            # Define dfresult and dtypes
-            dtypes = {
-                "instrument_name": "str",
-                "instrument_id": "str",
-                "is_active": "bool",
-                "creation_timestamp": "datetime64",
-                "expiration_timestamp": "datetime64",
-                "max_timestamp": "datetime64"
-            }
-
-        #print(f"SQL to execute:\n {sql}")
-
-        # initialize the cursor and execute the SQL sentence
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute(sql)
-                qresult = cursor.fetchall()
-            self.conn.commit()
-        except Exception as err:
-            print(f"Exception raised:{err}")
-            self.conn.rollback()
-
-        #print("Results in query",len(qresult))
-        dfresult = pd.DataFrame(qresult, columns=[desc[0] for desc in cursor.description]).astype(dtypes)
-        #print(dfresult.info())
-
-        return dfresult
+        return db.write_instruments_table_deribit(
+            deribit_obj = self.deribit,
+            is_active=is_active
+        )
 
 
     def fetch_ohlcv(self, instrument_name:str, instrument_id:str, start_timeframe:dt.datetime, end_timeframe:dt.datetime=dt.datetime.now(tz=dt.timezone.utc), resolution:int=1) -> pd.DataFrame:
