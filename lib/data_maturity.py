@@ -1,4 +1,4 @@
-from ..Agent import Collector
+from .Agent import Collector
 import json
 from variables import *
 import datetime as dt

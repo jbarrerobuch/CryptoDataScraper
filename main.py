@@ -1,10 +1,8 @@
-import Agent as Agent
+import lib.Agent as Agent
 from variables import *
 import datetime as dt
 import time
-
-import db_methods
-import deribit
+from lib import *
 
 def main(index_list:list, iteration_sleep:int=60*60*24) -> None:
     # Init the Collector class
@@ -40,27 +38,38 @@ def main(index_list:list, iteration_sleep:int=60*60*24) -> None:
         iteration_start = dt.datetime.now()
         
         
-        db_methods.write_instruments_table_deribit(agent.deribit, is_active=False)
-        db_methods.write_instruments_table_deribit(agent.deribit)
+        db_methods.write_instruments_table_deribit(
+            deribiti_obj=agent.deribit,
+            db_conn=agent.conn,
+            is_active=False)
+        db_methods.write_instruments_table_deribit(
+            deribiti_obj=agent.deribit,
+            db_conn=agent.conn,
+            is_active=True)
 
         # Update active status of instruments.
-        db_methods.write_instruments_status()
+        db_methods.write_instruments_status(db_conn=agent.conn)
 
         # Gather and store data from expired instruments
-        written_rows, failed_rows = db_methods.write_marketdata_in_db(is_active=False)
+        written_rows, failed_rows = db_methods.write_marketdata_in_db(db_conn=agent.conn, is_active=False)
         agent.stats["datapoints"]["writen"] += written_rows
         agent.stats["datapoints"]["failed"] += failed_rows
 
         # Gather and store data from active intruments
-        written_rows, failed_rows = db_methods.write_marketdata_in_db(is_active=True)
+        written_rows, failed_rows = db_methods.write_marketdata_in_db(db_conn=agent.conn, is_active=True)
         agent.stats["datapoints"]["writen"] += written_rows
         agent.stats["datapoints"]["failed"] += failed_rows
 
         for i in index_list:
             db_methods.write_index_data(
+                db_conn=agent.conn,
                 index_name=i,
                 interval="1m",
-                start_timestamp=db_methods.read_last_date_from_index(index_name=i, exchange="binance")
+                start_timestamp=db_methods.read_last_date_from_index(
+                    db_conn=agent.conn,
+                    index_name=i,
+                    exchange="binance"
+                    )
             )
 
         # Calculate stats
