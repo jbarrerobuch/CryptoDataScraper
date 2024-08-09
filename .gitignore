@@ -164,5 +164,4 @@ cython_debug/
 
 #Custom ignore files
 misc
-Queries_SQL
 variables.py
