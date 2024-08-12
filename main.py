@@ -4,9 +4,24 @@ import time
 from lib import *
 import memory_profiler as mp
 
+partition_cols = []
+storage_options = {
+        'anon': False,
+        'key': aws_access_key,
+        'secret': aws_access_secrete_key,
+        'client_kwargs': {'region_name': 'us-east-1'}
+    }
+path = "s3://scraped-cryptodata/market_data"
+bucket_name = "scraped-cryptodata"
 
-def main(index_list:list, iteration_sleep:int=60*60*24) -> None:
-    
+
+def main(index_list:list, iteration_sleep:int=60*60*24, output_path:str=None) -> None:
+        
+    if output_path == None:
+        kwargs = {}
+    else:
+        kwargs = {"db": False}
+
     start = time.time()
     memory, agent = mp.memory_usage((init_agent, (), {}), retval=True, max_usage=True)
     end = time.time()
@@ -24,41 +39,48 @@ def main(index_list:list, iteration_sleep:int=60*60*24) -> None:
 
         
         if since_last_iteration == 0 or (since_last_iteration < dt.timedelta(seconds=iteration_sleep) and since_last_iteration > dt.timedelta(days=1)):
+            
+            # Define Kwargs based on output path
+            if output_path is None:
+                kwargs = {
+                    "deribit_obj": agent.deribit,
+                    "db_conn": agent.conn
+                    }
+            else:
+                kwargs = {
+                    "deribit_obj": agent.deribit,
+                    "output_path": output_path
+                    }
+            
             profile_function(
                 func=db_methods.write_instruments_table_deribit,
                 agent=agent,
                 args=(),
-                kwargs={
-                    "deribit_obj": agent.deribit,
-                    "db_conn": agent.conn,
-                    "is_active": False
-                }
+                kwargs=kwargs
             )
             profile_function(
                 func=db_methods.write_instruments_table_deribit,
                 agent=agent,
                 args=(),
-                kwargs={
-                    "deribit_obj": agent.deribit,
-                    "db_conn": agent.conn,
-                    "is_active": True
-                }
+                kwargs=kwargs
             )
 
 
-        if since_last_iteration == 0 or (since_last_iteration < dt.timedelta(seconds=iteration_sleep) and since_last_iteration > dt.timedelta(hours=1)):
+        if output_path is None and (since_last_iteration == 0 or (since_last_iteration < dt.timedelta(seconds=iteration_sleep) and since_last_iteration > dt.timedelta(hours=1))):
 
             # Update active status of instruments.
             profile_function(
                 func=db_methods.write_instruments_status,
                 agent=agent,
                 args=(),
-                kwargs={"db_conn": agent.conn}
+                kwargs={
+                    "db_conn": agent.conn
+                }
             )
 
         # Gather and store data from expired instruments
         retval = profile_function(
-            func=db_methods.write_marketdata_in_db,
+            func=db_methods.write_marketdata,
             agent=agent,
             args=(),
             kwargs={
@@ -73,7 +95,7 @@ def main(index_list:list, iteration_sleep:int=60*60*24) -> None:
 
         # Gather and store data from active intruments
         retval = profile_function(
-            func=db_methods.write_marketdata_in_db,
+            func=db_methods.write_marketdata,
             agent=agent,
             args=(),
             kwargs={
@@ -147,6 +169,7 @@ def main(index_list:list, iteration_sleep:int=60*60*24) -> None:
 
         # Write log
         agent.write_log()
+        agent.memory_usage = {}
 
         time.sleep(iteration_sleep)
         since_last_iteration = dt.datetime.now() - agent.iteration_end
@@ -165,4 +188,4 @@ if __name__ == "__main__":
         "MATICUSDT",
         "BTCUSDT"
         ]
-    main(index_list=index_list, iteration_sleep=(60*10))
+    main(index_list=index_list, iteration_sleep=(60*10),output_path=path)
