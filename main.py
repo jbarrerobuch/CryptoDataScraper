@@ -65,7 +65,7 @@ def main(index_list:list, iteration_sleep:int=60*60*24, db_type:str=None, output
                 agent=agent,
                 args=(),
                 kwargs={
-                    "db_conn": agent.conn
+                    "agent": agent
                 }
             )
 
@@ -112,8 +112,7 @@ def main(index_list:list, iteration_sleep:int=60*60*24, db_type:str=None, output
                 agent=agent,
                 args=(),
                 kwargs={
-                    "db_conn": agent.conn,
-                    "binance_obj": agent.binance,
+                    "agent": agent,
                     "index_name": i,
                     "interval": "1m",
                     "start_timestamp": start_timestamp

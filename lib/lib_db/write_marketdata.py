@@ -1,6 +1,8 @@
 import pandas as pd
 import lib.lib_deribit as lib_deribit
-from . import read_last_date_from_instruments, write_df_to_db, write_df_to_parquet
+from .write_df_to_db import *
+from .read_last_date_from_instrument import *
+from .write_df_to_parquet import *
 import datetime as dt
 from ..delete_df import delete_df
 from ..Agent import Collector
@@ -32,7 +34,7 @@ def write_marketdata(agent:Collector, is_active:bool=True, is_complete:bool=Fals
 
     # Query instruments in data base
     df_instruments = read_last_date_from_instruments(
-        db_conn=agent.conn,
+        agent=agent,
         is_active=is_active,
         is_complete=is_complete
         )
@@ -71,6 +73,7 @@ def write_marketdata(agent:Collector, is_active:bool=True, is_complete:bool=Fals
             if agent.db_type == "postgres" or agent.db_type == "athena":
 
                 data_to_write.reset_index(inplace=True, drop=True)
+                
                 # Create partition columns
                 data_to_write["exchange"] = exchange
                 data_to_write['price_index'] = data_to_write['instrument_name'].str[:3].str.lower() + '_usd'
@@ -84,7 +87,7 @@ def write_marketdata(agent:Collector, is_active:bool=True, is_complete:bool=Fals
                     verbose=False
                 )
 
-            elif agent.db_type == None:
+            elif agent.db_type == None and output_path != None:
                 write_df_to_parquet(
                     data=data_to_write,
                     output_path=output_path

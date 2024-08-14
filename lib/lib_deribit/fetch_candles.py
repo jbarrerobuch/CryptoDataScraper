@@ -46,6 +46,10 @@ def fetch_candles(agent:Collector, instrument_name:str, instrument_id:str, start
         except ccxt.OnMaintenance as e:
             print(f"----OnMaintenance: {e}")
             return df
+
+        except ccxt.RequestTimeout as e:
+            print(f"----RequestTimeout: {e}")
+            return df
         
 
         else:

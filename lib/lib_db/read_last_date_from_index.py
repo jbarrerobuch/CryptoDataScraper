@@ -1,4 +1,5 @@
 import datetime as dt
+import pandas as pd
 
 __all__ = ["read_last_date_from_index"]
 
@@ -30,12 +31,13 @@ def read_last_date_from_index(db_conn, index_name:str, exchange:str, year:int = 
         # initialize the cursor and execute the SQL sentence
         # use excuted_sql ??
         try:
-            with db_conn.cursor() as cursor:
-                cursor.execute(sql)
-                qresult = cursor.fetchall()
+              dfresult = pd.read_sql(sql=sql, con=db_conn)
+            #with db_conn.cursor() as cursor:
+            #    cursor.execute(sql)
+            #    qresult = cursor.fetchall()
         except Exception as err:
             print(f"Exception raised:{err}")
 
-        last_date = qresult[0][0]
+        last_date = dfresult.iloc[0,0]
         last_date = last_date.replace(tzinfo=timezone)
         return last_date

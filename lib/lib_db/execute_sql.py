@@ -1,5 +1,6 @@
 import pandas as pd
 from ..Agent import Collector
+from sqlalchemy.orm import sessionmaker
 
 __all__ = ['execute_sql']
 
@@ -8,8 +9,8 @@ def execute_sql(sql:str, agent:Collector, values=None, verbose=False):
 	Execute a SQL query on a given database connection.\n
 
 	**Parameters:**
-		db_conn (object): A database connection object.
-		query (str): The SQL query to be executed.
+		agent (object): A database connection object.
+		sql (str): The SQL query to be executed.
 		output (str): The output return type, either "list" or "df" (default is "list").
 
 	**Returns:**
@@ -26,10 +27,8 @@ def execute_sql(sql:str, agent:Collector, values=None, verbose=False):
 
         else:
             if agent.db_type == "postgres":
-                with db_conn.cursor() as cursor:
-                    cursor.execute(sql, values)
-            
-                db_conn.commit()
+                agent.conn.execute(sql, values)
+                agent.conn.commit()
             
             # PENDING IMPLEMENTATiON OF UPDATING DATA IN ATHENA DB
             elif agent.db_type == "athena":
@@ -38,7 +37,7 @@ def execute_sql(sql:str, agent:Collector, values=None, verbose=False):
     except Exception as err:
         if verbose:
             print(f"Exception raised:{err}")
-        db_conn.rollback()
+        #agent.conn.rollback()
     
     else:
         if verbose:
