@@ -2,6 +2,8 @@ import datetime as dt
 import pandas as pd
 import ccxt
 
+__all__ = ["get_index_data"]
+
 def get_index_data(binance_obj:ccxt.Exchange, index_name:str, interval:str="1m", start_timestamp:dt.datetime=None, exhange:str="binance"):
         """
         Retrive 500 intervals of asset data from Binance API

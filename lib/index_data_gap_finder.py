@@ -1,10 +1,9 @@
 from .Agent import Collector
 from .init_agent import init_agent
-from variables import *
 import datetime as dt
 import time
 import pandas as pd
-from . import db_methods
+from . import lib_db
 
 def index_data_gap_finder(agent:Collector,index_name:str, year:int) -> list:
     """
@@ -29,7 +28,7 @@ def index_data_gap_finder(agent:Collector,index_name:str, year:int) -> list:
     # Query to read DB
     query = f"SELECT * FROM index_data_{year} WHERE index_name = '{index_name}' ORDER BY timestamp ASC"
 
-    data = db_methods.execute_sql(db_conn=agent.conn, query=query)
+    data = lib_db.execute_sql(db_conn=agent.conn, query=query)
 
     df = pd.DataFrame().from_records(
         data=data,

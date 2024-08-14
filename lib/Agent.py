@@ -2,9 +2,13 @@ import ccxt
 import datetime as dt
 from pytz import timezone, all_timezones
 import psycopg2
+import pyathena
+from sqlalchemy import create_engine
 import os
 import json
+import pandas as pd
 
+__all__ = ["Collector"]
 class Collector:
 
     def __init__(self) -> None:
@@ -12,8 +16,8 @@ class Collector:
         self.binance = None
         self.conn = None
         self.cur = None
-        self.data_written = []
-        self.data_failed = []
+        self.data_written = 0
+        self.data_failed = 0
         self.memory_usage = {}
         self.iterations = 0
         self.session_start = dt.datetime.now()
@@ -22,6 +26,7 @@ class Collector:
         self.iteration_duration = self.iteration_end - self.iteration_start
         self.running_time = dt.timedelta(seconds=0)
         self.log_filename = f"log/{self.session_start.strftime('%Y%m%d-%H%M')}.csv"
+        self.db_type = None
 
 
     # Connector to APIs and DB
@@ -55,22 +60,37 @@ class Collector:
         print()
 
 
-    def init_db_conn(self, db_name:str, db_user:str, db_password:str):
+    def init_pg_conn(self, db_name:str=os.getenv("PG_DB_NAME"), db_user:str=os.getenv("PG_DB_USER"), db_password:str=os.getenv("PG_DB_PASSWORD")):
         self.conn = psycopg2.connect(f"dbname={db_name} user={db_user} password={db_password}")
         self.cur = self.conn.cursor()
         self.cur.execute('SELECT version()')
         db_version = self.cur.fetchone()
         self.cur.close()
+        self.db_type = "postgres"
 
         print("version():", db_version)
         print("connection status:", self.conn.status)
         print()
     
+    def init_athena_conn(self, s3_staging_dir:str=os.getenv("AWS_S3_STAGING_DIR"), schema_name:str=os.getenv("AWS_SCHEMA_NAME"), region_name:str=os.getenv("AWS_DEFAULT_REGION")):
+        self.conn = create_engine(
+        f'awsathena+rest://{os.getenv("AWS_ACCESS_KEY_ID")}:{os.getenv("AWS_SECRET_ACCESS_KEY")}@athena.{region_name}.amazonaws.com:443/?s3_staging_dir={s3_staging_dir}&schema_name={schema_name}'
+        )
+
+        try:
+            pd.read_sql_query(sql="SELECT * FROM market_data LIMIT 1", con=self.conn)
+        except Exception as e:
+            print(f"Athena connection failed: {e}")
+        else:
+            self.db_type = "athena"
+            print("Athena initialized")
+
+    
     def write_log(self) -> None:
         if not os.path.exists(self.log_filename):
             with open(self.log_filename, 'w') as f:
                 f.write("log_timestamp| session_start| running_time| iteration_start| iteration_end| iteration_duration| data_written| data_failed| memory_usage\n")
-                f.write(f"{dt.datetime.now()}|{self.session_start}|{self.running_time}|{self.iteration_start}|{self.iteration_end}|{self.iteration_end - self.iteration_start}|{self.data_written[-1]}|{self.data_failed[-1]}|{json.dumps(self.memory_usage)}\n")
+                f.write(f"{dt.datetime.now()}|{self.session_start}|{self.running_time}|{self.iteration_start}|{self.iteration_end}|{self.iteration_end - self.iteration_start}|{self.data_written}|{self.data_failed}|{json.dumps(self.memory_usage)}\n")
         else:
             with open(self.log_filename, 'a') as f:
-                f.write(f"{dt.datetime.now()}|{self.session_start}|{self.running_time}|{self.iteration_start}|{self.iteration_end}|{self.iteration_end - self.iteration_start}|{self.data_written[-1]}|{self.data_failed[-1]}|{json.dumps(self.memory_usage)}\n")
+                f.write(f"{dt.datetime.now()}|{self.session_start}|{self.running_time}|{self.iteration_start}|{self.iteration_end}|{self.iteration_end - self.iteration_start}|{self.data_written}|{self.data_failed}|{json.dumps(self.memory_usage)}\n")

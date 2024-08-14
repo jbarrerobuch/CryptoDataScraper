@@ -1,5 +1,6 @@
 import pandas as pd
-import os
+
+__all__ = ["write_df_to_parquet"]
 
 def write_df_to_parquet(data: pd.DataFrame, output_path: str, partition_cols: list = [], storage_options: dict = {}) -> None:
     """
@@ -20,3 +21,5 @@ def write_df_to_parquet(data: pd.DataFrame, output_path: str, partition_cols: li
         partition_cols=partition_cols,
         storage_options=storage_options
         )
+    
+    return (True, len(data), 0)

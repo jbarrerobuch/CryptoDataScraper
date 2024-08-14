@@ -7,7 +7,7 @@ import pandas as pd
 
 collector = Collector()
 
-collector.init_db_conn(
+collector.init_pg_conn(
     db_name=db_name,
     db_user=db_user,
     db_password=db_password

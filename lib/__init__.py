@@ -1,9 +1,9 @@
-from . import Agent as Agent
-from . import deribit
-from . import db_methods
-from . import binance
-from . import Exchange
-from .init_agent import init_agent
-from .profile_function import profile_function
-from .index_data_gap_finder import index_data_gap_finder
-from .delete_df import delete_df
+from .Agent import Collector as Agent
+from .lib_deribit import *
+from .lib_db import *
+from .lib_binance import *
+from .lib_exchange import *
+from .init_agent import *
+from .profile_function import *
+from .index_data_gap_finder import *
+from .delete_df import *

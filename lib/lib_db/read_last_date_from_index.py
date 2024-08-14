@@ -1,5 +1,7 @@
 import datetime as dt
 
+__all__ = ["read_last_date_from_index"]
+
 def read_last_date_from_index(db_conn, index_name:str, exchange:str, year:int = dt.datetime.now(dt.timezone.utc).year, timezone:dt.timezone = dt.timezone.utc) -> dt.datetime:
         """
         Fetch last timestamp from the "assets" filtered by assets_name:

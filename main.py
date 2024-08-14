@@ -1,31 +1,23 @@
-from variables import *
+from dotenv import load_dotenv
 import datetime as dt
+import os
 import time
-from lib import *
+import lib
 import memory_profiler as mp
 
-partition_cols = []
-storage_options = {
-        'anon': False,
-        'key': aws_access_key,
-        'secret': aws_access_secrete_key,
-        'client_kwargs': {'region_name': 'us-east-1'}
-    }
-path = "s3://scraped-cryptodata/market_data"
-bucket_name = "scraped-cryptodata"
-
-
-def main(index_list:list, iteration_sleep:int=60*60*24, output_path:str=None) -> None:
+def main(index_list:list, iteration_sleep:int=60*60*24, db_type:str=None, output_path:str=None) -> None:
         
-    if output_path == None:
-        kwargs = {}
+    if db_type == "postgres":
+        kwargs = {"db": "postgres"}
+    elif db_type == "athena":
+        kwargs = {"db": "athena"}
     else:
         kwargs = {"db": False}
 
     start = time.time()
-    memory, agent = mp.memory_usage((init_agent, (), {}), retval=True, max_usage=True)
+    memory, agent = mp.memory_usage((lib.init_agent, (), kwargs), retval=True, max_usage=True)
     end = time.time()
-    agent.memory_usage[init_agent.__name__] = (memory, (end - start))
+    agent.memory_usage[lib.init_agent.__name__] = (memory, (end - start))
 
     # Init timer
     since_last_iteration = 0
@@ -40,37 +32,36 @@ def main(index_list:list, iteration_sleep:int=60*60*24, output_path:str=None) ->
         
         if since_last_iteration == 0 or (since_last_iteration < dt.timedelta(seconds=iteration_sleep) and since_last_iteration > dt.timedelta(days=1)):
             
-            # Define Kwargs based on output path
-            if output_path is None:
-                kwargs = {
-                    "deribit_obj": agent.deribit,
-                    "db_conn": agent.conn
-                    }
-            else:
-                kwargs = {
-                    "deribit_obj": agent.deribit,
-                    "output_path": output_path
-                    }
+            # Define Kwargs
+            kwargs = {
+                "agent": agent,
+                "output_path": output_path
+                }
             
-            profile_function(
-                func=db_methods.write_instruments_table_deribit,
+            # define is_actve = False for write_instruments_table_deribit
+            kwargs["is_active"] = False
+            lib.profile_function(
+                func=lib.write_instruments_table_deribit,
                 agent=agent,
                 args=(),
                 kwargs=kwargs
             )
-            profile_function(
-                func=db_methods.write_instruments_table_deribit,
+
+            # define is_actve = True for write_instruments_table_deribit
+            kwargs["is_active"] = True
+            lib.profile_function(
+                func=lib.write_instruments_table_deribit,
                 agent=agent,
                 args=(),
                 kwargs=kwargs
             )
 
 
-        if output_path is None and (since_last_iteration == 0 or (since_last_iteration < dt.timedelta(seconds=iteration_sleep) and since_last_iteration > dt.timedelta(hours=1))):
+        if agent.db_type == "postgres" and (since_last_iteration == 0 or (since_last_iteration < dt.timedelta(seconds=iteration_sleep) and since_last_iteration > dt.timedelta(hours=1))):
 
             # Update active status of instruments.
-            profile_function(
-                func=db_methods.write_instruments_status,
+            lib.profile_function(
+                func=lib.write_instruments_status,
                 agent=agent,
                 args=(),
                 kwargs={
@@ -79,40 +70,34 @@ def main(index_list:list, iteration_sleep:int=60*60*24, output_path:str=None) ->
             )
 
         # Gather and store data from expired instruments
-        retval = profile_function(
-            func=db_methods.write_marketdata,
+        lib.profile_function(
+            func=lib.write_marketdata,
             agent=agent,
             args=(),
             kwargs={
-                "db_conn": agent.conn,
-                "deribit_obj": agent.deribit,
-                "is_active": False
+                "agent": agent,
+                "is_active": False,
+                "output_path": output_path
             }
         )
-        written_rows, failed_rows = retval
-        agent.data_written.append(written_rows)
-        agent.data_failed.append(failed_rows)
 
         # Gather and store data from active intruments
-        retval = profile_function(
-            func=db_methods.write_marketdata,
+        lib.profile_function(
+            func=lib.write_marketdata,
             agent=agent,
             args=(),
             kwargs={
-                "db_conn": agent.conn,
-                "deribit_obj": agent.deribit,
-                "is_active": True
+                "agent": agent,
+                "is_active": True,
+                "output_path": output_path
             }
         )
-        written_rows, failed_rows = retval
-        agent.data_written.append(written_rows)
-        agent.data_failed.append(failed_rows)
 
         for i in index_list:
             
             # Get last timestamp from the index in db
-            start_timestamp = profile_function(
-                func=db_methods.read_last_date_from_index,
+            start_timestamp = lib.profile_function(
+                func=lib.read_last_date_from_index,
                 agent=agent,
                 args=(),
                 kwargs={
@@ -122,8 +107,8 @@ def main(index_list:list, iteration_sleep:int=60*60*24, output_path:str=None) ->
                 }
             )
 
-            profile_function(
-                func=db_methods.write_index_data,
+            lib.profile_function(
+                func=lib.write_index_data,
                 agent=agent,
                 args=(),
                 kwargs={
@@ -176,6 +161,23 @@ def main(index_list:list, iteration_sleep:int=60*60*24, output_path:str=None) ->
 
 
 if __name__ == "__main__":
+
+    # Load .env file
+    env_loaded = load_dotenv(dotenv_path=".env")
+    if not env_loaded:
+        exit(1)
+    
+    else:
+        print("Loaded .env file")
+
+    env_vars = os.getenv("AWS_ACCESS_KEY")
+
+    partition_cols = []
+
+    # to be added in agents init
+    storage_options = {'anon': False}
+    path = "s3://scraped-cryptodata"
+    bucket_name = "scraped-cryptodata"
     
     # Index list to retrieve
     index_list = [
@@ -187,5 +189,11 @@ if __name__ == "__main__":
         "SOLUSDT",
         "MATICUSDT",
         "BTCUSDT"
-        ]
-    main(index_list=index_list, iteration_sleep=(60*10),output_path=path)
+    ]
+
+    main(
+        index_list=index_list,
+        iteration_sleep=(60*10),
+        db_type="postgres",
+        #output_path="s3://scraped-cryptodata"
+    )

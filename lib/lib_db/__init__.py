@@ -1,4 +1,4 @@
-from ..deribit import *
+from ..lib_deribit import *
 from .check_index_data_year_complete import *
 from .execute_sql import *
 from .read_instruments_from_db import *

@@ -1,8 +1,21 @@
-from variables import *
-from .Agent import Collector
+from .Agent import *
+import os
 
-def init_agent(db:bool=True, binance:bool=True, deribit:bool=True) -> Collector:
+__all__ = ["init_agent"]
 
+def init_agent(db:str=False, binance:bool=True, deribit:bool=True, sandbox:bool=False ) -> Collector:
+    """
+	Initialize a Collector agent with connections to Deribit, Binance, and a database.
+
+	Parameters:
+		db (str): The type of database to connect to (either "postgres" or "athena") or False.
+		binance (bool): Whether to initialize a Binance connection (default is True).
+		deribit (bool): Whether to initialize a Deribit connection (default is True).
+		sandbox (bool): Whether to use sandbox mode for the connections (default is False).
+
+	Returns:
+		Collector: The initialized Collector agent.
+	"""
     # Init the Collector class
     agent = Collector()
     print()
@@ -10,26 +23,25 @@ def init_agent(db:bool=True, binance:bool=True, deribit:bool=True) -> Collector:
     # Init Deribit connection
     if deribit:
         agent.init_deribit(
-            apiKey=deribit_apiKey,
-            apisecret=deribit_apisecret,
-            sandbox_mode=False
+            apiKey=os.getenv("DERIBIT_APIKEY"),
+            apisecret=os.getenv("DERIBIT_APISECRET"),
+            sandbox_mode=sandbox
         )
 
     # Init Binance connection
     if binance:
         agent.init_binance(
-            apiKey=binance_apiKey,
-            apisecret=binance_apisecret,
-            sandbox_mode=False
+            apiKey=os.getenv("BINANCE_APIKEY"),
+            apisecret=os.getenv("BINANCE_APISECRET"),
+            sandbox_mode=sandbox
         )
 
 
-    # Init Postgress BD connection
-    if db:
-        agent.init_db_conn(
-            db_name=db_name,
-            db_user=db_user,
-            db_password=db_password
-        )
+    # Init DB connection Postgres or Athena
+    if db == "postgres":
+        agent.init_pg_conn()
+
+    elif db == "athena":
+        agent.init_athena_conn()
 
     return agent

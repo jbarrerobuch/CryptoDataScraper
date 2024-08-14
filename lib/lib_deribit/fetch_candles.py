@@ -1,15 +1,24 @@
 import datetime as dt
 import pandas as pd
 import ccxt
-from .. import db_methods
-def fetch_ohlcv(deribit_obj:ccxt.Exchange, instrument_name:str, instrument_id:str, start_timeframe:dt.datetime, end_timeframe:dt.datetime=dt.datetime.now(tz=dt.timezone.utc), resolution:int=1) -> pd.DataFrame:
-        """
-        Fetch of market data candles Open, high, low, close and volume.\n
-        - symbol: intrument name or asset symbol i.e. 'ETH-21DEC23-1800-C'
-        - start_timeframe and end_timeframe: int, unxi epoch timestamp in miliseconds\n
-        - resolution: int, data candle timefram aggrgation in minutes. [ 1, 3, 5, 10, 15, 30, 60, 120, 180, 360, 720]
+from ..Agent import Collector
 
-        It returns the data in a dataframe.
+__all__ = ["fetch_candles"]
+
+def fetch_candles(agent:Collector, instrument_name:str, instrument_id:str, start_timeframe:dt.datetime, end_timeframe:dt.datetime=dt.datetime.now(tz=dt.timezone.utc), resolution:int=1) -> pd.DataFrame:
+        """
+        Fetches market data candles for a given instrument from Deribit.
+
+        **Parameters:**\n
+        agent (Collector): The Collector object used to interact with Deribit.
+        instrument_name (str): The name of the instrument to fetch data for.
+        instrument_id (str): The ID of the instrument to fetch data for.
+        start_timeframe (dt.datetime): The start date and time of the data range to fetch.
+        end_timeframe (dt.datetime): The end date and time of the data range to fetch (default: current UTC time).
+        resolution (int): The time frame aggregation in minutes (default: 1).
+
+        **Returns:**\n
+        pd.DataFrame: A pandas DataFrame containing the fetched market data candles.
         """
         # need to catch Err for instrument not found
         # Exception has occurred: BadRequest       
@@ -17,7 +26,7 @@ def fetch_ohlcv(deribit_obj:ccxt.Exchange, instrument_name:str, instrument_id:st
         # deribit {"usOut":1703446335056501,"usIn":1703446335056492,"usDiff":9,"testnet":false,"jsonrpc":"2.0","error":{"message":"Invalid params","data":{"reason":"instrument not found","param":"instrument_name"},"code":-32602}}
         #
         try:
-            candles = deribit_obj.public_get_get_tradingview_chart_data(
+            candles = agent.deribit.public_get_get_tradingview_chart_data(
                 params={
                     "instrument_name": instrument_name,
                     "start_timestamp": int(start_timeframe.timestamp())*1000,
@@ -53,9 +62,7 @@ def fetch_ohlcv(deribit_obj:ccxt.Exchange, instrument_name:str, instrument_id:st
                 df = pd.DataFrame(candles, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'], dtype=float)
                 df["instrument_name"] = instrument_name
                 df["instrument_id"] = instrument_id
-                #df["data_id"] = pd.concat([df["instrument_id"], df["timestamp"].to_timestamp()], axis=1,).apply(lambda row: "-".join(row), axis=1)
                 df["data_id"] = df.apply(lambda row: f"{row['instrument_id']}-{row['timestamp']}", axis=1)
                 df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-                #print(f"Instrument: {instrument_name} - {len(df)} data points")
             
             return df            

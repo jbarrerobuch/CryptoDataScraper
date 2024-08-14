@@ -1,5 +1,4 @@
-import db_methods
-import deribit
+from ..lib_deribit import fetch_candles
 import datetime as dt
 
 def get_option_info(deribit_obj, instrument_name:str, pit=int(dt.datetime.now(tz=dt.timezone.utc).timestamp()*1000)) -> dict:
@@ -7,7 +6,7 @@ def get_option_info(deribit_obj, instrument_name:str, pit=int(dt.datetime.now(tz
         deribit_obj.load_markets() # changed cctx.Exchange by deribit object
         
         # Fetch candle data of instrument
-        ohlcv_data = deribit.fetch_ohlcv(instrument_name,"1m").iloc[-1,:]
+        ohlcv_data = fetch_candles(instrument_name,"1m").iloc[-1,:]
 
         # Fetch Instrument market information
         option_data = deribit_obj.market(instrument_name)

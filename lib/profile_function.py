@@ -1,8 +1,8 @@
-from . import Agent
+from .Agent import *
 import time
 import memory_profiler as mp
 
-def profile_function(func:callable, agent:Agent.Collector, args:tuple=(), kwargs:dict={}) -> tuple:
+def profile_function(func:callable, agent:Collector, args:tuple=(), kwargs:dict={}) -> tuple:
     """
     Measures the memory usage of a specified function, updates the memory\n
     usage and the time used in seconds in the agent and returns the\n
