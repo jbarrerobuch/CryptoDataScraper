@@ -9,7 +9,7 @@ import datetime as dt
 
 __all__ = ["write_instruments_table_deribit"]
 
-def write_instruments_table_deribit(agent:Collector, is_active= True,  output_path:str=None):
+def write_instruments_table_deribit(agent:Collector, is_active= True,  output_path:str=None, verbose=False):
     """
     Writes the instruments table to the database.\n
     
@@ -45,7 +45,7 @@ def write_instruments_table_deribit(agent:Collector, is_active= True,  output_pa
             table_name=table_name,
             output_path=output_path,
             exchange="deribit",
-            verbose="False"
+            verbose=verbose
         )
     
     else:

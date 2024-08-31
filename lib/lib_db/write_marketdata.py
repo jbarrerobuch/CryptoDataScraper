@@ -59,7 +59,7 @@ def write_marketdata(agent:Collector, is_active:bool=True, is_complete:bool=Fals
                 start_timeframe=row["creation_timestamp"],
                 end_timeframe=row["expiration_timestamp"]
             )
-        
+
         # Collect data for storage
         if not market_data.empty:
             if data_to_write.empty:

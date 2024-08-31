@@ -3,12 +3,12 @@ from ..Agent import Collector
 
 __all__ = ["write_instruments_status"]
 
-def write_instruments_status(agent:Collector) -> None:
+def write_instruments_status(agent:Collector, verbose=False) -> None:
 
     # SET EXPIRED INSTRUMENTS TO is_active = False
     sql = "UPDATE instruments SET is_active = false\n\
         WHERE expiration_timestamp < CURRENT_DATE;"
-    execute_sql(agent=agent, sql=sql)
+    execute_sql(agent=agent, sql=sql, verbose=verbose)
     print("Updated expiration statuses")
 
     # SET COMPLETE INSTRUMENTS TO is_complete = True
@@ -30,5 +30,6 @@ def write_instruments_status(agent:Collector) -> None:
         ) AS subquery
         WHERE instruments.instrument_name = subquery.instrument_name;
     """
-    execute_sql(agent=agent, sql=sql)
+    execute_sql(agent=agent, sql=sql, verbose=verbose)
+    agent.session.close()
     print("Updated complete statuses")

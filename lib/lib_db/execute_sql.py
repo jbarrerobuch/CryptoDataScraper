@@ -1,6 +1,9 @@
 import pandas as pd
 from ..Agent import Collector
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.sql import text
+import time
+import psycopg2
 
 __all__ = ['execute_sql']
 
@@ -18,27 +21,46 @@ def execute_sql(sql:str, agent:Collector, values=None, verbose=False):
 		pd.DataFrame: A pandas DataFrame returned by the SQL query if output is "df".
 		None: If the query is not a SELECT query.
 	"""
-    
-    try:
-        # Filter the query statement
-        if sql.startswith("SELECT"):
+
+    # Filter the query statement
+    if sql.startswith("SELECT"):
+        try:
             dfresult = pd.read_sql(sql=sql, con=agent.conn)
             return dfresult
 
-        else:
-            if agent.db_type == "postgres":
-                agent.conn.execute(sql, values)
-                agent.conn.commit()
-            
-            # PENDING IMPLEMENTATiON OF UPDATING DATA IN ATHENA DB
-            elif agent.db_type == "athena":
-                pass
-                
-    except Exception as err:
-        if verbose:
+        except Exception as err:
             print(f"Exception raised:{err}")
-        #agent.conn.rollback()
-    
+
+    # Not a SELECT query
     else:
-        if verbose:
-            print("Execute SQL succesful")
+        if agent.db_type == "postgres":
+            if agent.session == None:
+                Session = sessionmaker(bind=agent.conn)
+                agent.session = Session()
+            elif not agent.session.is_active:
+                Session = sessionmaker(bind=agent.conn)
+                agent.session = Session()
+                
+            # Check if transaction is in progress
+            while agent.session.in_transaction():
+                if verbose == True:
+                    print("Transaction in progress", end="\r")
+                time.sleep(0.1)
+
+            try:
+                agent.session.execute(text(sql), params = values)
+                agent.session.commit()
+
+            except Exception as err:
+                    if verbose:
+                        print(f"Exception raised:{err}")
+                    
+                    agent.session.rollback()
+            
+            else:
+                if verbose:
+                    print("Execute SQL succesful")
+        
+        # PENDING IMPLEMENTATiON OF UPDATING DATA IN ATHENA DB
+        elif agent.db_type == "athena":
+            pass

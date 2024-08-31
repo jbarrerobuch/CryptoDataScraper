@@ -5,7 +5,7 @@ import time
 import lib
 import memory_profiler as mp
 
-def main(index_list:list, iteration_sleep:int=60*60*24, db_type:str=None, output_path:str=None) -> None:
+def main(index_list:list, iteration_sleep:int=60*60*24, db_type:str=None, output_path:str=None, verbose=False) -> None:
         
     if db_type == "postgres":
         kwargs = {"db": "postgres"}
@@ -35,11 +35,14 @@ def main(index_list:list, iteration_sleep:int=60*60*24, db_type:str=None, output
             # Define Kwargs
             kwargs = {
                 "agent": agent,
-                "output_path": output_path
+                "output_path": output_path,
+                "verbose": verbose
                 }
             
             # define is_actve = False for write_instruments_table_deribit
             kwargs["is_active"] = False
+
+            print(f"writing instruments table active: {kwargs['is_active']}")
             lib.profile_function(
                 func=lib.write_instruments_table_deribit,
                 agent=agent,
@@ -49,6 +52,7 @@ def main(index_list:list, iteration_sleep:int=60*60*24, db_type:str=None, output
 
             # define is_actve = True for write_instruments_table_deribit
             kwargs["is_active"] = True
+            print(f"writing instruments table active: {kwargs['is_active']}")
             lib.profile_function(
                 func=lib.write_instruments_table_deribit,
                 agent=agent,
@@ -60,16 +64,19 @@ def main(index_list:list, iteration_sleep:int=60*60*24, db_type:str=None, output
         if agent.db_type == "postgres" and (since_last_iteration == 0 or (since_last_iteration < dt.timedelta(seconds=iteration_sleep) and since_last_iteration > dt.timedelta(hours=1))):
 
             # Update active status of instruments.
+            print("writing instruments status")
             lib.profile_function(
                 func=lib.write_instruments_status,
                 agent=agent,
                 args=(),
                 kwargs={
-                    "agent": agent
+                    "agent": agent,
+                    "verbose": verbose
                 }
             )
 
         # Gather and store data from expired instruments
+        print("writing marketdata expired instruments")
         lib.profile_function(
             func=lib.write_marketdata,
             agent=agent,
@@ -82,6 +89,7 @@ def main(index_list:list, iteration_sleep:int=60*60*24, db_type:str=None, output
         )
 
         # Gather and store data from active intruments
+        print("writing marketdata active instruments")
         lib.profile_function(
             func=lib.write_marketdata,
             agent=agent,
@@ -93,8 +101,12 @@ def main(index_list:list, iteration_sleep:int=60*60*24, db_type:str=None, output
             }
         )
 
+        print("writing index data")
+        count = 0
         for i in index_list:
             
+            count += 1
+            print(f"writing for {i} ({count}/{len(index_list)})", end="\r")
             # Get last timestamp from the index in db
             start_timestamp = lib.profile_function(
                 func=lib.read_last_date_from_index,
@@ -194,5 +206,6 @@ if __name__ == "__main__":
         index_list=index_list,
         iteration_sleep=(60*10),
         db_type="postgres",
-        #output_path="s3://scraped-cryptodata"
+        #output_path="s3://scraped-cryptodata",
+        verbose=False
     )

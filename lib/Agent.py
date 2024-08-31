@@ -15,7 +15,7 @@ class Collector:
         self.deribit = None
         self.binance = None
         self.conn = None
-        #self.cur = None
+        self.session = None
         self.data_written = 0
         self.data_failed = 0
         self.memory_usage = {}

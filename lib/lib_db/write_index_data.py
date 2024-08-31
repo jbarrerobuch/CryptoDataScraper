@@ -78,7 +78,6 @@ def write_index_data(agent:Collector, index_name:str, interval:str, start_timest
 
         if index_data.empty:
             print(f"Returned empty getting data from:\n\ {index_name} - {last_timestamp}")
-            last_timestamp = index_data["timestamp"].max().replace(tzinfo=dt.timezone.utc)
         else:
             # Append retrived data to bulk writer
             if data_to_write.empty:
