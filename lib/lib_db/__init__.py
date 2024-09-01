@@ -9,4 +9,4 @@ from .write_index_data import *
 from .write_instruments_status import *
 from .write_instruments_table_deribit import *
 from .write_marketdata import *
-from .write_df_to_parquet import *
+from .write_df_to_delta import *

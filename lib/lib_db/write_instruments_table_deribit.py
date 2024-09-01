@@ -1,5 +1,5 @@
 from .write_df_to_db import *
-from .write_df_to_parquet import *
+from .write_df_to_delta import *
 from ..lib_deribit import get_currency_list, get_instruments
 from ..Agent import Collector
 import psycopg2

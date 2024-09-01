@@ -210,6 +210,8 @@ def test(index_list:list, db_type:str=None, output_path:str=None, verbose=False)
     
     print(d)
 
+    lib.write_df_to_delta()
+
 if __name__ == "__main__":
 
     # Load .env file

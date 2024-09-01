@@ -2,7 +2,7 @@ import pandas as pd
 import lib.lib_deribit as lib_deribit
 from .write_df_to_db import *
 from .read_last_date_from_instrument import *
-from .write_df_to_parquet import *
+from .write_df_to_delta import *
 import datetime as dt
 from ..delete_df import delete_df
 from ..Agent import Collector

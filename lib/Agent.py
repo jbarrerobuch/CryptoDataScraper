@@ -1,8 +1,5 @@
 import ccxt
 import datetime as dt
-from pytz import timezone, all_timezones
-import psycopg2
-import pyathena
 from sqlalchemy import create_engine
 import os
 import json
@@ -62,16 +59,10 @@ class Collector:
 
     def init_pg_conn(self, db_name:str=os.getenv("PG_DB_NAME"), db_user:str=os.getenv("PG_DB_USER"), db_password:str=os.getenv("PG_DB_PASSWORD")):
         self.conn = create_engine(f"postgresql://{db_user}:{db_password}@localhost:5432/{db_name}")
-        #self.conn = psycopg2.connect(f"dbname={db_name} user={db_user} password={db_password}")
-        #self.cur = self.conn.cursor()
-        #self.cur.execute('SELECT version()')
-        #db_version = self.cur.fetchone()
-        #self.cur.close()
-        self.db_type = "postgres"
 
-        #print("version():", db_version)
-        #print("connection status:", self.conn.status)
-        #print()
+        self.db_type = "postgres"
+        print("Postgres initialized")
+
     
     def init_athena_conn(self, s3_staging_dir:str=os.getenv("AWS_S3_STAGING_DIR"), schema_name:str=os.getenv("AWS_SCHEMA_NAME"), region_name:str=os.getenv("AWS_DEFAULT_REGION")):
         self.conn = create_engine(

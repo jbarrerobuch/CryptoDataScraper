@@ -1,7 +1,7 @@
 import pandas as pd
 from .execute_sql import execute_sql
 from ..Agent import Collector
-from .write_df_to_parquet import write_df_to_delta
+from .write_df_to_delta import write_df_to_delta
 import os
 from sqlalchemy import create_engine
 
