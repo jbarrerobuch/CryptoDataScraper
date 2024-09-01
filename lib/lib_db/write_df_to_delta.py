@@ -3,7 +3,7 @@ import polars as pl
 from deltalake import DeltaTable
 __all__ = ["write_df_to_delta"]
 
-def write_df_to_delta(data: pl.DataFrame, output_path: str, partition_cols: list = [], storage_options: dict = {}) -> None:
+def write_df_to_delta(data: pl.DataFrame, output_path: str, table_name:str = None, partition_cols: list = [], storage_options: dict = {}) -> None:
     """
     Write Polars to a delta table in parquet file, either locally or to an S3 bucket.\n
 
@@ -14,11 +14,12 @@ def write_df_to_delta(data: pl.DataFrame, output_path: str, partition_cols: list
     **Returns:**\n
         None\n
     """
+
     data.write_delta(
-        path=output_path,
+        f"{output_path}/{table_name}",
         mode="append",
-        partition_cols=partition_cols,
+        delta_write_options={"partition_by": partition_cols, "name": table_name},
         storage_options=storage_options
     )
-
+    
     return (True, len(data), 0)

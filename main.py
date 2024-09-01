@@ -171,7 +171,8 @@ def main(index_list:list, iteration_sleep:int=60*60*24, db_type:str=None, output
         time.sleep(iteration_sleep)
         since_last_iteration = dt.datetime.now() - agent.iteration_end
 
-def test(index_list:list, db_type:str=None, output_path:str=None, verbose=False) -> None:
+
+def test_write_instruments(index_list:list, db_type:str=None, output_path:str=None, verbose=False) -> None:
     
     if db_type == "postgres":
         kwargs = {"db": "postgres"}
@@ -189,8 +190,9 @@ def test(index_list:list, db_type:str=None, output_path:str=None, verbose=False)
 
     d = pl.DataFrame()
     index = 0
+    writen_inst = 0
 
-    while len(d) == 0:
+    while writen_inst < 3:
 
         # Select the first row and extract the values of the specified columns
         first_row = dict(zip(i.columns, i.row(index)))
@@ -207,11 +209,45 @@ def test(index_list:list, db_type:str=None, output_path:str=None, verbose=False)
         )
         
         index += 1
-    
-    print(d)
 
-    lib.write_df_to_delta()
+        if d.shape[0] > 0:
+            writen_inst += 1
+            print(f"writing for {instrument_name} num:{writen_inst}")
 
+            d = d.with_columns_seq(
+                [
+                    pl.lit("BTC").alias("currency"),
+                    pl.lit("BTC").alias("part_currency"),
+                    pl.col("instrument_id").alias("part_instrument_id"),
+                    pl.col("timestamp").dt.date().alias("part_date")
+                ]
+            )
+            print(f"{d.row(0)}")
+
+            partition_cols = [
+                "part_currency",
+                "part_date",
+                "part_instrument_id"        
+            ]
+
+            lib.write_df_to_delta(
+                data=d,
+                output_path="data",
+                table_name="market_data",
+                partition_cols=partition_cols        
+            )
+
+
+def test_read_deltatable():
+
+    from delta import DeltaTable
+    delta_table_path = "data"
+    delta_table = DeltaTable(delta_table_path)
+
+    # Convert to Polar DataFrame
+    df = pl.DataFrame(delta_table.to_pyarrow_table())
+
+    print(df)
 if __name__ == "__main__":
 
     # Load .env file
@@ -251,9 +287,9 @@ if __name__ == "__main__":
     #    #output_path=path,
     #    verbose=False
     #)
-    test(
-        index_list=index_list[0],
-        db_type="athena",
-        output_path=path,
-        verbose=False
-    )
+    #test_write_instruments(
+    #    index_list=index_list[0],
+    #    db_type="athena",
+    #    output_path=path,
+    #    verbose=False
+    #)

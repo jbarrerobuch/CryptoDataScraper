@@ -70,7 +70,7 @@ def fetch_candles(agent:Collector, instrument_name:str, instrument_id:str, start
                     [
                         pl.lit(instrument_name).alias("instrument_name"),
                         pl.lit(instrument_id).alias("instrument_id"),
-                        pl.col("timestamp").cast(pl.Int64).cast(pl.Datetime).alias("timestamp"),
+                        pl.col("timestamp").cast(pl.Int64).cast(pl.Datetime("ms")).alias("timestamp"),
                         pl.concat_str(
                             [
                                 pl.lit(instrument_id),
@@ -78,6 +78,7 @@ def fetch_candles(agent:Collector, instrument_name:str, instrument_id:str, start
                             ],
                             separator="-"
                         ).alias("data_id"),
+                        pl.lit("Deribit").alias("exchange")
                     ]
                 )
             

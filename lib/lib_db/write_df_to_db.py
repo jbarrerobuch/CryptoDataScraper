@@ -1,4 +1,5 @@
 import pandas as pd
+import polars as pl
 from .execute_sql import execute_sql
 from ..Agent import Collector
 from .write_df_to_delta import write_df_to_delta
@@ -7,7 +8,7 @@ from sqlalchemy import create_engine
 
 __all__ = ["write_df_to_db"]
 
-def write_df_to_db(agent:Collector, data:pd.DataFrame, table_name:str, output_path:str=None, exchange:str=None, verbose=False) -> tuple:
+def write_df_to_db(agent:Collector, data:pl.DataFrame, table_name:str, output_path:str=None, exchange:str=None, verbose=False) -> tuple:
     """
     Bulk write a dataframe to a table.
     Required:
@@ -54,15 +55,20 @@ def write_df_to_db(agent:Collector, data:pd.DataFrame, table_name:str, output_pa
             agent.session.close()
 
 
-    elif agent.db_type == "athena":
+    elif agent.db_type == "delta":
         
         # Define partitions cols for market_data
         if table_name == "market_data":
-            partition_cols = ["p-exchange","p-price_index", "p-year", "p-instrument_type"]
-            data["p-price_index"] = data['price_index']
-            data["p-exchange"] = data["exchange"]
-            data['p-year'] = data['timestamp'].dt.year
-            data["p-instrument_type"] = data["instrument_type"]
+            partition_cols = ["p-exchange","p-price_index", "p-date", "p-instrument_id"]
+
+            data = data.with_columns(
+                [
+                    pl.col("price_index").alias("p-price_index"),
+                    pl.col("exchange").alias("p-exchange"),
+                    pl.col("timestamp").dt.date().alias("p-date"),
+                    pl.col("instrument_id").alias("p-instrument_id")
+                ]
+            )
         
         else:
             partition_cols = []
@@ -73,7 +79,8 @@ def write_df_to_db(agent:Collector, data:pd.DataFrame, table_name:str, output_pa
 
         write_df_to_delta(
             data=data,
-            output_path=f"{output_path}/{table_name}",
+            output_path=output_path,
+            table_name=table_name,
             partition_cols=partition_cols,
             storage_options=storage_options
         )

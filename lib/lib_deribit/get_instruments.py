@@ -53,9 +53,10 @@ def get_instruments(deribit_obj, currency_list: list, kind="option", expired=Fal
     instruments_df = instruments_df.with_columns_seq([
         pl.col(col).cast(dtype) for col, dtype in dtypes.items()
     ])
+    
     instruments_df = instruments_df.with_columns([
-        pl.col("expiration_timestamp").cast(pl.Datetime).dt.with_time_unit("ms"),
-        pl.col("creation_timestamp").cast(pl.Datetime).dt.with_time_unit("ms")
+        pl.col("expiration_timestamp").cast(pl.Datetime("ms")),
+        pl.col("creation_timestamp").cast(pl.Datetime("ms"))
     ])
 
     return instruments_df
