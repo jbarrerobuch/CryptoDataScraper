@@ -1,7 +1,7 @@
 import pandas as pd
 from .execute_sql import execute_sql
 from ..Agent import Collector
-from .write_df_to_parquet import write_df_to_parquet
+from .write_df_to_parquet import write_df_to_delta
 import os
 from sqlalchemy import create_engine
 
@@ -71,7 +71,7 @@ def write_df_to_db(agent:Collector, data:pd.DataFrame, table_name:str, output_pa
             'anon': False
         }
 
-        write_df_to_parquet(
+        write_df_to_delta(
             data=data,
             output_path=f"{output_path}/{table_name}",
             partition_cols=partition_cols,

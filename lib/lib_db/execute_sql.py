@@ -3,7 +3,7 @@ from ..Agent import Collector
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import text
 import time
-import psycopg2
+import polars as pl
 
 __all__ = ['execute_sql']
 
@@ -26,6 +26,7 @@ def execute_sql(sql:str, agent:Collector, values=None, verbose=False):
     if sql.startswith("SELECT"):
         try:
             dfresult = pd.read_sql(sql=sql, con=agent.conn)
+            dfresult = pl.DataFrame._from_pandas(dfresult)
             return dfresult
 
         except Exception as err:
@@ -62,5 +63,5 @@ def execute_sql(sql:str, agent:Collector, values=None, verbose=False):
                     print("Execute SQL succesful")
         
         # PENDING IMPLEMENTATiON OF UPDATING DATA IN ATHENA DB
-        elif agent.db_type == "athena":
+        elif agent.db_type == "delta":
             pass

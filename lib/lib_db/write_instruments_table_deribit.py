@@ -49,7 +49,7 @@ def write_instruments_table_deribit(agent:Collector, is_active= True,  output_pa
         )
     
     else:
-        write_df_to_parquet(
+        write_df_to_delta(
             data=df_instruments,
             output_path=f"{output_path}/{table_name}",
         )

@@ -4,6 +4,7 @@ import os
 import time
 import lib
 import memory_profiler as mp
+import polars as pl
 
 def main(index_list:list, iteration_sleep:int=60*60*24, db_type:str=None, output_path:str=None, verbose=False) -> None:
         
@@ -170,6 +171,44 @@ def main(index_list:list, iteration_sleep:int=60*60*24, db_type:str=None, output
         time.sleep(iteration_sleep)
         since_last_iteration = dt.datetime.now() - agent.iteration_end
 
+def test(index_list:list, db_type:str=None, output_path:str=None, verbose=False) -> None:
+    
+    if db_type == "postgres":
+        kwargs = {"db": "postgres"}
+    elif db_type == "athena":
+        kwargs = {"db": "athena"}
+    else:
+        kwargs = {"db": False}
+    
+    agent = lib.init_agent(**kwargs)
+
+    i = lib.get_instruments(
+        deribit_obj=agent.deribit,
+        currency_list= ["BTC"]
+    )
+
+    d = pl.DataFrame()
+    index = 0
+
+    while len(d) == 0:
+
+        # Select the first row and extract the values of the specified columns
+        first_row = dict(zip(i.columns, i.row(index)))
+
+        # Access the values
+        instrument_name = first_row["instrument_name"]
+        instrument_id = first_row["instrument_id"]
+
+        d = lib.fetch_candles(
+            agent=agent,
+            instrument_name=instrument_name,
+            instrument_id=instrument_id,
+            start_timeframe=dt.datetime.now() - dt.timedelta(days=1)
+        )
+        
+        index += 1
+    
+    print(d)
 
 if __name__ == "__main__":
 
@@ -187,8 +226,9 @@ if __name__ == "__main__":
 
     # to be added in agents init
     storage_options = {'anon': False}
-    path = "s3://scraped-cryptodata"
-    bucket_name = "scraped-cryptodata"
+    #path = "s3://scraped-cryptodata"
+    #bucket_name = "scraped-cryptodata"
+    path = "data"
     
     # Index list to retrieve
     index_list = [
@@ -202,10 +242,16 @@ if __name__ == "__main__":
         "BTCUSDT"
     ]
 
-    main(
-        index_list=index_list,
-        iteration_sleep=(60*10),
-        db_type="postgres",
-        #output_path="s3://scraped-cryptodata",
+    #main(
+    #    index_list=index_list,
+    #    iteration_sleep=(60*10),
+    #    db_type="postgres",
+    #    #output_path=path,
+    #    verbose=False
+    #)
+    test(
+        index_list=index_list[0],
+        db_type="athena",
+        output_path=path,
         verbose=False
     )

@@ -1,11 +1,11 @@
 import datetime as dt
-import pandas as pd
+import polars as pl
 import ccxt
 from ..Agent import Collector
 
 __all__ = ["fetch_candles"]
 
-def fetch_candles(agent:Collector, instrument_name:str, instrument_id:str, start_timeframe:dt.datetime, end_timeframe:dt.datetime=dt.datetime.now(tz=dt.timezone.utc), resolution:int=1) -> pd.DataFrame:
+def fetch_candles(agent:Collector, instrument_name:str, instrument_id:str, start_timeframe:dt.datetime, end_timeframe:dt.datetime=dt.datetime.now(tz=dt.timezone.utc), resolution:int=1) -> pl.DataFrame:
         """
         Fetches market data candles for a given instrument from Deribit.
 
@@ -18,7 +18,7 @@ def fetch_candles(agent:Collector, instrument_name:str, instrument_id:str, start
         resolution (int): The time frame aggregation in minutes (default: 1).
 
         **Returns:**\n
-        pd.DataFrame: A pandas DataFrame containing the fetched market data candles.
+        pl.DataFrame: A Polars DataFrame containing the fetched market data candles.
         """
         # need to catch Err for instrument not found
         # Exception has occurred: BadRequest       
@@ -40,7 +40,7 @@ def fetch_candles(agent:Collector, instrument_name:str, instrument_id:str, start
             print(f"----BadRequest: {e}")
             #sql = f"UPDATE instruments SET not_found = '{dt.datetime.today().strftime('%Y-%m-%d')}', is_active = false WHERE instrument_name = '{instrument_name}'"
             #db_methods.execute_sql(query=sql)
-            df = pd.DataFrame()
+            df = pl.DataFrame()
             return df
         
         except ccxt.OnMaintenance as e:
@@ -56,17 +56,29 @@ def fetch_candles(agent:Collector, instrument_name:str, instrument_id:str, start
             #print(candles)
             if candles["status"] == "no_data":
                 print(f"Instrument: {instrument_name} - no data")
-                df = pd.DataFrame()
+                df = pl.DataFrame()
             elif candles["status"] == "ok":
                 candles["timestamp"] = candles["ticks"] # rename ticks to timestamp
                 del candles["status"] # Drop no needed keys
                 del candles["ticks"] # Drop no needed keys
 
                 # transform the dictionary to df
-                df = pd.DataFrame(candles, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'], dtype=float)
-                df["instrument_name"] = instrument_name
-                df["instrument_id"] = instrument_id
-                df["data_id"] = df.apply(lambda row: f"{row['instrument_id']}-{row['timestamp']}", axis=1)
-                df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+                df = pl.DataFrame(
+                    data=candles
+                )
+                df = df.with_columns_seq(
+                    [
+                        pl.lit(instrument_name).alias("instrument_name"),
+                        pl.lit(instrument_id).alias("instrument_id"),
+                        pl.col("timestamp").cast(pl.Int64).cast(pl.Datetime).alias("timestamp"),
+                        pl.concat_str(
+                            [
+                                pl.lit(instrument_id),
+                                pl.col("timestamp").cast(pl.Utf8)
+                            ],
+                            separator="-"
+                        ).alias("data_id"),
+                    ]
+                )
             
-            return df            
+            return df

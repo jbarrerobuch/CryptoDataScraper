@@ -88,7 +88,7 @@ def write_marketdata(agent:Collector, is_active:bool=True, is_complete:bool=Fals
                 )
 
             elif agent.db_type == None and output_path != None:
-                write_df_to_parquet(
+                write_df_to_delta(
                     data=data_to_write,
                     output_path=output_path
                 )
@@ -122,7 +122,7 @@ def write_marketdata(agent:Collector, is_active:bool=True, is_complete:bool=Fals
                 verbose=False
                 )
         elif agent.db_type == None:
-            write_df_to_parquet(
+            write_df_to_delta(
                 data=data_to_write,
                 output_path=output_path
             )

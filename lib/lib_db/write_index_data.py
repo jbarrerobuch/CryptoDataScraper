@@ -1,5 +1,7 @@
 import datetime as dt
 import pandas as pd
+import polars as pl
+
 from .check_index_data_year_complete import check_index_data_year_complete
 from .write_df_to_db import write_df_to_db
 from ..lib_binance import *
@@ -60,7 +62,7 @@ def write_index_data(agent:Collector, index_name:str, interval:str, start_timest
         raise ValueError(f"Invalid interval. Valid intervals are: {valid_intervals}")
 
     # Initialize data collector for bulk writing in DB
-    data_to_write = pd.DataFrame()
+    data_to_write = pl.DataFrame()
 
     # Refresh end timestamp to now
     end_timestamp = dt.datetime.now(dt.timezone.utc)
