@@ -24,6 +24,8 @@ class Collector:
         self.running_time = dt.timedelta(seconds=0)
         self.log_filename = f"log/{self.session_start.strftime('%Y%m%d-%H%M')}.csv"
         self.db_type = None
+        self.verbose = False
+        self.output_path = None
 
 
     # Connector to APIs and DB

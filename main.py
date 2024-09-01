@@ -173,15 +173,23 @@ def main(index_list:list, iteration_sleep:int=60*60*24, db_type:str=None, output
 
 
 def test_write_instruments(index_list:list, db_type:str=None, output_path:str=None, verbose=False) -> None:
-    
-    if db_type == "postgres":
-        kwargs = {"db": "postgres"}
-    elif db_type == "athena":
-        kwargs = {"db": "athena"}
-    else:
-        kwargs = {"db": False}
+
+
+    kwargs = {
+        "db": "delta",
+        "binance": False
+    }        
     
     agent = lib.init_agent(**kwargs)
+
+    agent.verbose = verbose
+    agent.output_path = output_path
+
+    lib.write_instruments_table_deribit(
+        agent=agent,
+        output_path=output_path,
+        verbose=verbose
+    )
 
     i = lib.get_instruments(
         deribit_obj=agent.deribit,
@@ -192,7 +200,7 @@ def test_write_instruments(index_list:list, db_type:str=None, output_path:str=No
     index = 0
     writen_inst = 0
 
-    while writen_inst < 3:
+    while writen_inst < 5:
 
         # Select the first row and extract the values of the specified columns
         first_row = dict(zip(i.columns, i.row(index)))
@@ -208,6 +216,7 @@ def test_write_instruments(index_list:list, db_type:str=None, output_path:str=No
             start_timeframe=dt.datetime.now() - dt.timedelta(days=1)
         )
         
+
         index += 1
 
         if d.shape[0] > 0:
@@ -217,17 +226,18 @@ def test_write_instruments(index_list:list, db_type:str=None, output_path:str=No
             d = d.with_columns_seq(
                 [
                     pl.lit("BTC").alias("currency"),
-                    pl.lit("BTC").alias("part_currency"),
-                    pl.col("instrument_id").alias("part_instrument_id"),
-                    pl.col("timestamp").dt.date().alias("part_date")
+                    #pl.lit("BTC").alias("part_currency"),
+                    #pl.col("instrument_id").alias("part_instrument_id"),
+                    pl.col("timestamp").dt.date().alias("date")
                 ]
             )
-            print(f"{d.row(0)}")
 
+            print(d.schema)
+            
             partition_cols = [
-                "part_currency",
-                "part_date",
-                "part_instrument_id"        
+                "currency",
+                "date",
+                "instrument_id"        
             ]
 
             lib.write_df_to_delta(
@@ -238,16 +248,22 @@ def test_write_instruments(index_list:list, db_type:str=None, output_path:str=No
             )
 
 
-def test_read_deltatable():
+def test_read_deltatable(table:str, path:str="data") -> None:
 
-    from delta import DeltaTable
-    delta_table_path = "data"
+    from deltalake import DeltaTable
+    delta_table_path = f"{path}/{table}"
     delta_table = DeltaTable(delta_table_path)
 
     # Convert to Polar DataFrame
     df = pl.DataFrame(delta_table.to_pyarrow_table())
 
     print(df)
+    
+    print(df.schema)
+    print(df.describe())
+    print(df.dtypes)
+
+
 if __name__ == "__main__":
 
     # Load .env file
@@ -285,11 +301,15 @@ if __name__ == "__main__":
     #    iteration_sleep=(60*10),
     #    db_type="postgres",
     #    #output_path=path,
-    #    verbose=False
+    #    verbose=True
     #)
-    #test_write_instruments(
-    #    index_list=index_list[0],
-    #    db_type="athena",
-    #    output_path=path,
-    #    verbose=False
-    #)
+    
+    test_write_instruments(
+        index_list=index_list[-1],
+        db_type="delta",
+        output_path=path,
+        verbose=False
+    )
+
+    test_read_deltatable("market_data")
+

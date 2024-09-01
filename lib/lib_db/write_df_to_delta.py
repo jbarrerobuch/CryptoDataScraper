@@ -1,6 +1,5 @@
-import pandas as pd
 import polars as pl
-from deltalake import DeltaTable
+
 __all__ = ["write_df_to_delta"]
 
 def write_df_to_delta(data: pl.DataFrame, output_path: str, table_name:str = None, partition_cols: list = [], storage_options: dict = {}) -> None:

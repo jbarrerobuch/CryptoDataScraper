@@ -27,7 +27,7 @@ def write_instruments_table_deribit(agent:Collector, is_active= True,  output_pa
     if verbose:
         print(f"Updating instruments with active status {is_active}")
 
-    df_instruments = get_instruments(deribit_obj=agent.deribit, currency_list= currencies, expired= not is_active)
+    df_instruments = get_instruments(deribit_obj=agent.deribit, currency_list=currencies, expired=not is_active)
     
     # Add columns
     df_instruments = df_instruments.with_columns(

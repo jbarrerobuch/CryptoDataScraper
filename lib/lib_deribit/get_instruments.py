@@ -1,10 +1,11 @@
 import polars as pl
+import json
 
 __all__ = ["get_instruments"]
 
 def get_instruments(deribit_obj, currency_list: list, kind="option", expired=False) -> pl.DataFrame:
     dtypes = {
-        #"tick_size_steps": pl.Utf8,
+        "tick_size_steps": pl.Utf8,
         "quote_currency": pl.Utf8,
         "min_trade_amount": pl.Float64,
         "expiration_timestamp": pl.Float64,
@@ -32,6 +33,8 @@ def get_instruments(deribit_obj, currency_list: list, kind="option", expired=Fal
         "is_complete": pl.Boolean
     }
 
+    Empty_tick_size_steps = {"above_price": "", "tick_size": ""}
+
     instruments_df = pl.DataFrame()
 
     for currency in currency_list:
@@ -42,14 +45,22 @@ def get_instruments(deribit_obj, currency_list: list, kind="option", expired=Fal
                 "expired": expired
             }
         )
+
         data = pl.DataFrame(instruments_raw["result"])
+
         if data.shape[0] > 0:
-            data = data.with_columns(pl.lit(False).alias("is_complete"))
+            data = data.with_columns(
+                [
+                    pl.lit(False).alias("is_complete"),
+                    pl.col("tick_size_steps").fill_null(json.dumps(Empty_tick_size_steps)).alias("tick_size_steps") # Fill null values in the 'tick_size_steps' column with a default value
+                ]
+            )
+
             if instruments_df.shape[0] == 0:
                 instruments_df = data
             else:
                 instruments_df = pl.concat([instruments_df, data])
-
+    
     instruments_df = instruments_df.with_columns_seq([
         pl.col(col).cast(dtype) for col, dtype in dtypes.items()
     ])

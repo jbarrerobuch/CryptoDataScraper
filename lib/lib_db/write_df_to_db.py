@@ -59,23 +59,20 @@ def write_df_to_db(agent:Collector, data:pl.DataFrame, table_name:str, output_pa
         
         # Define partitions cols for market_data
         if table_name == "market_data":
-            partition_cols = ["p-exchange","p-price_index", "p-date", "p-instrument_id"]
-
-            data = data.with_columns(
-                [
-                    pl.col("price_index").alias("p-price_index"),
-                    pl.col("exchange").alias("p-exchange"),
-                    pl.col("timestamp").dt.date().alias("p-date"),
-                    pl.col("instrument_id").alias("p-instrument_id")
-                ]
-            )
+            partition_cols = ["exchange","price_index", "date", "instrument_id"]
         
         else:
             partition_cols = []
 
-        storage_options = {
-            'anon': False
-        }
+        
+        # Define storage options
+        if output_path.startswith("s3"):
+            storage_options = {
+                'anon': False
+            }
+        
+        else:
+            storage_options = {}
 
         write_df_to_delta(
             data=data,
