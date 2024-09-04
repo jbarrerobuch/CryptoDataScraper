@@ -5,7 +5,7 @@ __all__ = ["get_instruments"]
 
 def get_instruments(deribit_obj, currency_list: list, kind="option", expired=False) -> pl.DataFrame:
     dtypes = {
-        "tick_size_steps": pl.Utf8,
+        #"tick_size_steps": pl.Utf8,
         "quote_currency": pl.Utf8,
         "min_trade_amount": pl.Float64,
         "expiration_timestamp": pl.Float64,
@@ -33,7 +33,7 @@ def get_instruments(deribit_obj, currency_list: list, kind="option", expired=Fal
         "is_complete": pl.Boolean
     }
 
-    Empty_tick_size_steps = {"above_price": "", "tick_size": ""}
+    Empty_tick_size_steps = json.dumps({"above_price": "", "tick_size": ""})
 
     instruments_df = pl.DataFrame()
 
@@ -46,20 +46,32 @@ def get_instruments(deribit_obj, currency_list: list, kind="option", expired=Fal
             }
         )
 
-        data = pl.DataFrame(instruments_raw["result"])
+        if len(instruments_raw["result"]) == 0:
+            continue
 
-        if data.shape[0] > 0:
-            data = data.with_columns(
-                [
-                    pl.lit(False).alias("is_complete"),
-                    pl.col("tick_size_steps").fill_null(json.dumps(Empty_tick_size_steps)).alias("tick_size_steps") # Fill null values in the 'tick_size_steps' column with a default value
-                ]
-            )
+        else:
 
-            if instruments_df.shape[0] == 0:
-                instruments_df = data
+            try:
+                data = pl.DataFrame(instruments_raw["result"]).with_columns(
+                    [
+                        pl.lit(False).alias("is_complete"),
+                        pl.col("tick_size_steps").map_batches(
+                            lambda x: [Empty_tick_size_steps if len(item) == 0 else json.dumps(list(item)[0]) for item in x]
+                        ).alias("tick_size_steps"),
+                        pl.lit("deribit").alias("exchange")
+                    ]
+                )
+                print(data.head())
+
+            except Exception as e:
+                print(f"Error: {e}")
+            
             else:
-                instruments_df = pl.concat([instruments_df, data])
+                # Append the dataframes
+                if instruments_df.shape[0] == 0:
+                    instruments_df = data
+                else:
+                    instruments_df = pl.concat([instruments_df, data])
     
     instruments_df = instruments_df.with_columns_seq([
         pl.col(col).cast(dtype) for col, dtype in dtypes.items()

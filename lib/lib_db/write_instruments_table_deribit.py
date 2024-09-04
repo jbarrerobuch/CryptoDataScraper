@@ -1,5 +1,6 @@
 from .write_df_to_db import *
 from .write_df_to_delta import *
+from ..delete_df import *
 from ..lib_deribit import get_currency_list, get_instruments
 from ..Agent import Collector
 import polars as pl
@@ -28,15 +29,6 @@ def write_instruments_table_deribit(agent:Collector, is_active= True,  output_pa
         print(f"Updating instruments with active status {is_active}")
 
     df_instruments = get_instruments(deribit_obj=agent.deribit, currency_list=currencies, expired=not is_active)
-    
-    # Add columns
-    df_instruments = df_instruments.with_columns(
-        [
-            pl.lit(False).alias("is_complete"),
-            pl.col("tick_size_steps").apply(json.dumps).alias("tick_size_steps"),
-            pl.lit("deribit").alias("exchange")
-        ]
-    )
 
     if verbose:
         print(df_instruments.head())
@@ -53,3 +45,4 @@ def write_instruments_table_deribit(agent:Collector, is_active= True,  output_pa
         exchange="deribit",
         verbose=verbose
     )
+    

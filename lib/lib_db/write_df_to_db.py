@@ -1,9 +1,8 @@
-import pandas as pd
 import polars as pl
 from .execute_sql import execute_sql
 from ..Agent import Collector
 from .write_df_to_delta import write_df_to_delta
-import os
+from ..delete_df import delete_df
 from sqlalchemy import create_engine
 
 __all__ = ["write_df_to_db"]
@@ -81,9 +80,12 @@ def write_df_to_db(agent:Collector, data:pl.DataFrame, table_name:str, output_pa
             partition_cols=partition_cols,
             storage_options=storage_options
         )
-        status = True
-        writen_rows = len(data)
-        writen_failed = 0
-    
+
+    status = True
+    writen_rows = len(data)
+    writen_failed = 0
+
+    delete_df(data)
+
     # Return writing status
     return (status, writen_rows, writen_failed)

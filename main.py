@@ -191,9 +191,10 @@ def test_write_instruments(index_list:list, db_type:str=None, output_path:str=No
         verbose=verbose
     )
 
+    # Try to read from table instruments if written in previous step
     i = lib.get_instruments(
         deribit_obj=agent.deribit,
-        currency_list= ["BTC"]
+        currency_list= ["USDC", "BTC"]
     )
 
     d = pl.DataFrame()
