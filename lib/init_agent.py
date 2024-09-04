@@ -43,5 +43,7 @@ def init_agent(db:str=False, binance:bool=True, deribit:bool=True, sandbox:bool=
 
     elif db == "athena":
         agent.init_athena_conn()
+    elif db == "delta":
+        agent.db_type = "delta"
 
     return agent

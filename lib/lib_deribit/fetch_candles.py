@@ -62,48 +62,48 @@ def fetch_candles(agent:Collector, instrument_name:str, instrument_id:str, start
                 del candles["status"] # Drop no needed keys
                 del candles["ticks"] # Drop no needed keys
 
-            # Define the schema with the desired data types
-            schema = {
-                "timestamp": pl.Datetime("ms"),
-                "open": pl.Float64,
-                "high": pl.Float64,
-                "low": pl.Float64,
-                "close": pl.Float64,
-                "volume": pl.Float64,
-                "instrument_name": pl.Utf8,
-                "instrument_id": pl.Utf8,
-                "data_id": pl.Utf8,
-                "exchange": pl.Utf8
-            }
+                # Define the schema with the desired data types
+                schema = {
+                    "timestamp": pl.Datetime("ms"),
+                    "open": pl.Float64,
+                    "high": pl.Float64,
+                    "low": pl.Float64,
+                    "close": pl.Float64,
+                    "volume": pl.Float64,
+                    "instrument_name": pl.Utf8,
+                    "instrument_id": pl.Utf8,
+                    "data_id": pl.Utf8,
+                    "exchange": pl.Utf8
+                }
 
-            # Transform the dictionary to df and cast columns to the specified data types
-            df = pl.DataFrame(data=candles).with_columns(
-                [
-                    pl.lit(instrument_name).alias("instrument_name"),
-                    pl.lit(instrument_id).alias("instrument_id"),
-                    pl.col("timestamp").cast(pl.Int64).cast(pl.Datetime("ms")).alias("timestamp"),
-                    pl.concat_str(
-                        [
-                            pl.lit(instrument_id),
-                            pl.col("timestamp").cast(pl.Utf8)
-                        ],
-                        separator="-"
-                    ).alias("data_id"),
-                    pl.lit("Deribit").alias("exchange")
-                ]
-            ).with_columns(
-                [
-                    pl.col("timestamp").cast(schema["timestamp"]),
-                    pl.col("open").cast(schema["open"]),
-                    pl.col("high").cast(schema["high"]),
-                    pl.col("low").cast(schema["low"]),
-                    pl.col("close").cast(schema["close"]),
-                    pl.col("volume").cast(schema["volume"]),
-                    pl.col("instrument_name").cast(schema["instrument_name"]),
-                    pl.col("instrument_id").cast(schema["instrument_id"]),
-                    pl.col("data_id").cast(schema["data_id"]),
-                    pl.col("exchange").cast(schema["exchange"])
-                ]
-            )
+                # Transform the dictionary to df and cast columns to the specified data types
+                df = pl.DataFrame(data=candles).with_columns(
+                    [
+                        pl.lit(instrument_name).alias("instrument_name"),
+                        pl.lit(instrument_id).alias("instrument_id"),
+                        pl.col("timestamp").cast(pl.Int64).cast(pl.Datetime("ms")).alias("timestamp"),
+                        pl.concat_str(
+                            [
+                                pl.lit(instrument_id),
+                                pl.col("timestamp").cast(pl.Utf8)
+                            ],
+                            separator="-"
+                        ).alias("data_id"),
+                        pl.lit("Deribit").alias("exchange")
+                    ]
+                ).with_columns(
+                    [
+                        pl.col("timestamp").cast(schema["timestamp"]),
+                        pl.col("open").cast(schema["open"]),
+                        pl.col("high").cast(schema["high"]),
+                        pl.col("low").cast(schema["low"]),
+                        pl.col("close").cast(schema["close"]),
+                        pl.col("volume").cast(schema["volume"]),
+                        pl.col("instrument_name").cast(schema["instrument_name"]),
+                        pl.col("instrument_id").cast(schema["instrument_id"]),
+                        pl.col("data_id").cast(schema["data_id"]),
+                        pl.col("exchange").cast(schema["exchange"])
+                    ]
+                )
 
         return df

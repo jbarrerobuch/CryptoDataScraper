@@ -174,14 +174,6 @@ def main(index_list:list, iteration_sleep:int=60*60*24, db_type:str=None, output
 
 def test_write_instruments(index_list:list, db_type:str=None, output_path:str=None, verbose=False) -> None:
 
-
-    kwargs = {
-        "db": "delta",
-        "binance": False
-    }        
-    
-    agent = lib.init_agent(**kwargs)
-
     agent.verbose = verbose
     agent.output_path = output_path
 
@@ -296,6 +288,13 @@ if __name__ == "__main__":
         "MATICUSDT",
         "BTCUSDT"
     ]
+
+    kwargs = {
+        "db": "delta",
+        "binance": False
+    }        
+    
+    agent = lib.init_agent(**kwargs)
 
     #main(
     #    index_list=index_list,
